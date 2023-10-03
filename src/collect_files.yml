@@ -1,0 +1,99 @@
+# Сценарий для сбора файлов с серверов
+- name: Собрать файлы с серверов
+  hosts: "{{ server_name }}" # имя сервера или группы серверов
+  debugger: never
+
+  tasks:
+  
+  # Проверить наличие и размер лог-файла на удаленном сервере
+  - name: Check log file on remote server
+    stat:
+      path: "{{ log_data[log_type].dir }}{{ log_data[log_type].current }}"
+    register: log_stat
+
+  # Если файл пуст или не найден, то выдать предупреждение
+  - name: Warn if log file is empty or not found
+    fail: 
+      msg: "Log file {{ log_data[log_type].dir }}{{ log_data[log_type].current }} is empty or not found"
+    when: log_stat.stat.exists == false or log_stat.stat.size == 0
+
+  # Если дата сегодня, то сжать лог-файл на удаленном сервере без удаления исходного файла
+  - name: Compress log file on remote server if date is today
+    become: yes
+    become_user: root
+    become_method: sudo
+    archive:
+      path: "{{ log_data[log_type].dir }}/{{ log_data[log_type].current }}"
+      dest: "{{ log_data[log_type].dir }}/{{ log_data[log_type].archive }}"
+      remove: no
+    when: date == ansible_date_time.date
+
+  # Если дата предшествующая, то найти лог-файл по маске и сжать найденный файл
+  - name: Find and compress log file on remote server if date is previous
+    block:
+      - name: Find log file by mask
+        find:
+          paths: "{{ log_data[log_type].dir }}"
+          patterns: "{{ log_data[log_type].previous }}"
+        register: find_result
+ 
+      - name:
+        fail:
+          msg: "Logs of this type {{ log_type }} for this date {{ date }} is not found"
+        when: find_result.matched == 0
+
+      - name: Check compressed log file on remote server
+        stat:
+          path: "{{ log_data[log_type].dir }}/{{ log_data[log_type].archive }}"
+        register: compressed_log_stat
+      
+      - name: Compress found log file on remote server
+        become: yes
+        become_user: root
+        become_method: sudo
+        archive:
+          path: "{{ log_data[log_type].dir }}/{{ log_data[log_type].current }}"
+          dest: "{{ log_data[log_type].dir }}/{{ log_data[log_type].archive }}"
+          remove: no
+        when:
+          - compressed_log_stat.stat.exists == false
+
+    when: date != ansible_date_time.date
+
+  #Получение размера сжатого лог-файла и присвоение значения к переменной
+  - name: Get size of compressed file
+    block:
+      - name: Stats about compressed file
+        shell:
+          cmd: "ls -l --block-size=1K {{ log_data[log_type].dir }}/{{ log_data[log_type].archive }} | awk '{print $5}'"  
+        register: compressed_log_size
+
+  # Если сжатый лог-файл больше 1 Гб или после fetching доступное место 
+  # на мастер-сервере будет меньше 200 Мб, то выдать предупреждение 
+  # и не делать fetching, если не указан ключ Force
+  - name: Find out the size of available space disk
+    block:
+      - name: Discover size of disk
+        shell: df / | awk  'NR == 2 { print $4 }'
+        register: available_disk_space
+        delegate_to: localhost
+      
+      - name: Setting var for available disk space on master-server
+        set_fact:
+          size_available: "{{ available_disk_space.stdout|int - compressed_log_size.stdout|int }}"
+
+  - name: Warn and skip fetching if compressed log file is too large or available space is too low
+    debug:
+      msg: "Compressed log file is {{ compressed_log_size.stdout|int / 1024 }} MB, which is larger than 1 GB, or available space on master server is {{ size_available|int /1024 }} MB, which is lower than 200 MB. Skipping fetching unless Force is true."
+    when: 
+      - ( compressed_log_size.stdout|int > 1048576 or size_available|int < 204800 ) and (force == 'no')
+
+  # Копировать сжатый лог-файл на мастер-сервер в папку ../node-сервер/тип_лога
+  - name: Fetch compressed log file to master server
+    fetch:
+      src: "{{ log_data[log_type].dir }}/{{ log_data[log_type].archive }}"
+      dest: "{{ dest_dir }}/{{ log_data[log_type].archive }}"
+      flat: yes
+    when: 
+      - ( compressed_log_size.stdout|int < 1048576 ) or ( size_available|int > 204800 ) or (force == 'yes')
+

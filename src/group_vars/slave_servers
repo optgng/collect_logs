@@ -1,0 +1,78 @@
+  log_type: "{{ log_type }}"
+  log_date: "{{ log_date }}"
+  force: "{{ force | default(false) }}"
+  # Словарь с данными о логах
+  log_data:
+    activemq:
+      dir: /var/log/activemq/
+      current: activemq.log
+      previous: activemq.log.{{ date }}
+      archive: activemq.log.{{ date }}.gz
+    catalina_a:
+      dir: /var/log/alfresco_1/
+      current: catalina.out
+      previous: catalina.{{ date }}.log
+      archive: catalina.{{ date }}.log.gz
+    documentRepair:
+      dir: /var/log/alfresco_1/
+      current: documentRepairJob.log
+      previous: documentRepairJob.log.{{ date }}
+      archive: documentRepairJob.log.{{ date }}.gz
+    local_access_a:
+      dir: /var/log/alfresco_1/
+      current: localhost_access_log.{{ date }}.txt
+      previous: localhost_access_log.{{ date }}.txt
+      archive: localhost_access_log.{{ date }}.txt.gz
+    solr_q:
+      dir: /var/log/alfresco_1/
+      current: solrQuery.log
+      previous: solrQuery.log.{{ date }}
+      archive: solrQuery.log.{{ date }}.gz
+    csupd:
+      dir: /var/log/alfresco_1/csupd/
+      current: csupd.log
+      previous: csupd.log-{{ date }}
+      archive: csupd.log-{{ date }}.gz
+    mclient:
+      dir: /var/log/alfresco_1/mclog/
+      current: mclient.log
+      previous: mclient.log-{{ date }}
+      archive: mclient.log-{{ date }}.gz
+    catalina_s:
+      dir: /var/log/share_1/
+      current: catalina.out
+      previous: catalina.{{ date }}.log
+      archive: catalina.{{ date }}.log.gz
+    local_access_s:
+      dir: /var/log/share_1/
+      current: localhost_access_log.{{ date }}.txt
+      previous: localhost_access_log.{{ date }}.txt
+      archive: localhost_access_log.{{ date }}.txt.gz
+    messages:
+      dir: /var/log/
+      current: messages
+      previous: messages{{ date }}
+      archive: messages{{ date }}.gz
+    postgresql:
+      dir: /var/log/postgresql
+      current: postgresql.log
+      previous: postgresql{{ date }}.log
+      archive: postgresql{{ date }}.log.gz
+    treaddump:
+      dir: /var/log/ThreadDumps/*
+      current: thread.dump
+      previous: thread_{{ date }}_*.dump
+      archive: thread_{{ date }}_*.dump.gz
+    solr:
+      dir: /var/log/solr4/logs
+      current: solr.log
+      previous: solr.log.{{ date }}
+      archive: solr.log.{{ date }}.gz
+    karaf:
+      dir: /opt/e5/e5-esb/data/log
+      current: karaf.log
+      previous: karaf.log.{{ date | replace('-', '.') }}.*
+      archive: karaf.log.{{ date | replace('-', '.') }}.gz
+
+  # Путь к папке на мастер-сервере, куда будут копироваться логи
+  dest_dir: ../{{ server_name }}/{{ log_type }}
