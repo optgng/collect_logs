@@ -8,3 +8,5 @@
 Также, данные проверки можно отключить с помощью опции `force=true`  
 После отправки, архив помещается в директорию `../имя_сервера/имя_приложения/`
 
+Запуск playbook:
+ - `ansible-playbook collect_files.yml -e "server_name=имя_сервера log_type=activemq date=2023-09-24 force=no"`
